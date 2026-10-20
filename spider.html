@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Spider OSINT</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: #050508; color: #fff; padding: 20px; padding-bottom: 50px; overflow-x: hidden; min-height: 100vh; }
+        
+        .header { text-align: center; margin-bottom: 20px; margin-top: 20px; }
+        .header h1 { font-size: 26px; font-weight: 900; letter-spacing: 2px;}
+        .header h1 span { color: #00ff88; text-shadow: 0 0 10px #00ff88; }
+        .header p { font-size: 12px; color: #666; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px;}
+
+        /* Поиск */
+        .search-box { position: relative; margin-bottom: 30px; z-index: 10;}
+        .search-box input {
+            width: 100%; padding: 18px 20px; font-size: 16px;
+            background: rgba(20, 20, 30, 0.8); border: 1px solid #333;
+            border-radius: 16px; color: #00ff88; outline: none; transition: 0.3s;
+            font-family: monospace; letter-spacing: 1px;
+        }
+        .search-box input:focus { border-color: #00ff88; box-shadow: 0 0 20px rgba(0, 255, 136, 0.2); }
+        .search-box button {
+            position: absolute; right: 8px; top: 8px; bottom: 8px;
+            width: 50px; border: none; border-radius: 12px;
+            background: #00ff88; color: #000; font-weight: 900; font-size: 20px;
+            cursor: pointer; transition: 0.2s;
+        }
+        .search-box button:active { transform: scale(0.95); }
+
+        /* Контейнер для паутины и карточек */
+        .results-container { position: relative; display: flex; flex-direction: column; gap: 15px; }
+
+        /* ПАУТИНА (Анимация) */
+        #web-animation {
+            position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+            width: 300px; height: 300px; z-index: 0; pointer-events: none;
+            display: none; opacity: 0;
+        }
+        .web-line {
+            stroke: #00ff88; stroke-width: 2;
+            stroke-dasharray: 200; stroke-dashoffset: 200;
+            filter: drop-shadow(0 0 5px #00ff88);
+        }
+        .web-circle {
+            stroke: #00ff88; fill: none; stroke-width: 1;
+            opacity: 0; transform-origin: center;
+        }
+
+        /* Карточки */
+        .card {
+            background: rgba(20, 20, 30, 0.9); border-radius: 16px; padding: 18px;
+            border: 1px solid #222; position: relative; overflow: hidden;
+            z-index: 2; opacity: 0; transform: translateY(30px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        
+        /* Класс для плавного появления карточек */
+        .card.show { animation: cardAppear 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+        @keyframes cardAppear {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card::before {
+            content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+            background: var(--color, #00ff88);
+            box-shadow: 0 0 10px var(--color, #00ff88);
+        }
+
+        .card-title { font-size: 13px; color: var(--color, #00ff88); font-weight: 900; text-transform: uppercase; margin-bottom: 12px; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;}
+        .card-title::before { content: '■'; font-size: 10px; }
+        
+        .card-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; border-bottom: 1px solid #222; padding-bottom: 8px; }
+        .card-row:last-child { border: none; margin-bottom: 0; padding-bottom: 0; }
+        .card-label { color: #888; }
+        .card-val { font-weight: bold; color: #fff; font-family: monospace; font-size: 14px;}
+
+        .link-btn { 
+            display: block; padding: 12px; background: rgba(255,255,255,0.05); 
+            border: 1px solid #333; border-radius: 10px; text-align: center; 
+            color: #fff; text-decoration: none; font-size: 13px; font-weight: bold; 
+            margin-top: 8px; transition: 0.2s; display: flex; justify-content: space-between; align-items: center;
+        }
+        .link-btn:hover, .link-btn:active { background: rgba(0, 255, 136, 0.1); border-color: #00ff88; color: #00ff88; }
+        .link-btn span { font-size: 16px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>SPIDER <span>OSINT</span></h1>
+        <p>Поиск по открытым источникам</p>
+    </div>
+
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="+7 (999) 123-45-67" maxlength="18">
+        <button onclick="startSearch()">➔</button>
+    </div>
+
+    <div class="results-container" id="results">
+        <!-- Сюда рендерится SVG паутина и карточки -->
+    </div>
+
+    <script>
+        Telegram.WebApp.ready();
+        
+        // Маска для ввода номера (чтобы красиво вводилось)
+        const input = document.getElementById('searchInput');
+        input.addEventListener('input', function (e) {
+            let x = e.target.value.replace(/\D/g, '').match(/(\d{0,1})(\d{0,3})(\d{0,3})(\d{0,2})(\d{0,2})/);
+            e.target.value = !x[2] ? x[1] : '+' + x[1] + ' (' + x[2] + ') ' + (x[3] ? x[3] + '-' + x[4] + (x[5] ? '-' + x[5] : '') : '');
+        });
+
+        function startSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (query.length < 10) return alert('Введи полный номер!');
+
+            if (Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('heavy');
+
+            const container = document.getElementById('results');
+            container.innerHTML = `
+                <!-- АНИМАЦИЯ ПАУТИНЫ -->
+                <svg id="web-animation" viewBox="0 0 300 300">
+                    <!-- Лучи -->
+                    <line class="web-line" x1="150" y1="150" x2="150" y2="0" />
+                    <line class="web-line" x1="150" y1="150" x2="300" y2="150" />
+                    <line class="web-line" x1="150" y1="150" x2="150" y2="300" />
+                    <line class="web-line" x1="150" y1="150" x2="0" y2="150" />
+                    <!-- Диагонали -->
+                    <line class="web-line" x1="150" y1="150" x2="45" y2="45" />
+                    <line class="web-line" x1="150" y1="150" x2="255" y2="45" />
+                    <line class="web-line" x1="150" y1="150" x2="255" y2="255" />
+                    <line class="web-line" x1="150" y1="150" x2="45" y2="255" />
+                    
+                    <!-- Круги -->
+                    <circle class="web-circle" cx="150" cy="150" r="40" />
+                    <circle class="web-circle" cx="150" cy="150" r="80" />
+                    <circle class="web-circle" cx="150" cy="150" r="120" />
+                </svg>
+            `;
+
+            // Запускаем анимацию паутины
+            const web = document.getElementById('web-animation');
+            web.style.display = 'block';
+            
+            // Анимация линий через JS (чтобы не париться с CSS keyframes)
+            const lines = document.querySelectorAll('.web-line');
+            lines.forEach((line, index) => {
+                setTimeout(() => {
+                    line.style.transition = 'stroke-dashoffset 0.4s ease-out';
+                    line.style.strokeDashoffset = '0';
+                }, index * 50);
+            });
+
+            // Анимация кругов
+            const circles = document.querySelectorAll('.web-circle');
+            circles.forEach((circle, index) => {
+                setTimeout(() => {
+                    circle.style.transition = 'opacity 0.5s, transform 0.5s';
+                    circle.style.opacity = '0.3';
+                    circle.style.transform = 'scale(1.2)';
+                }, 300 + index * 100);
+            });
+
+            // Ждем, пока паутина "раскроется", и рендерим карточки
+            setTimeout(() => {
+                web.style.transition = 'opacity 0.5s';
+                web.style.opacity = '0'; // Прячем паутину
+                
+                setTimeout(() => {
+                    web.style.display = 'none';
+                    renderCards(query);
+                }, 500);
+            }, 800);
+        }
+
+        function renderCards(query) {
+            const container = document.getElementById('results');
+            const cleanNum = query.replace(/\D/g, '');
+            
+            // 1. Карточка: Инфо (Авито)
+            const card1 = document.createElement('div');
+            card1.className = 'card';
+            card1.style.setProperty('--color', '#00bfff');
+            card1.innerHTML = `
+                <div class="card-title">Авито / Объявления</div>
+                <div class="card-row"><span class="card-label">Номер</span><span class="card-val">${query}</span></div>
+                <a href="https://www.avito.ru/all?q=${cleanNum}" target="_blank" class="link-btn">Искать на Авито <span>➔</span></a>
+            `;
+            container.appendChild(card1);
+
+            // 2. Карточка: Банки
+            const card2 = document.createElement('div');
+            card2.className = 'card';
+            card2.style.setProperty('--color', '#ffd700');
+            card2.innerHTML = `
+                <div class="card-title">Проверка в Банках</div>
+                <a href="https://www.google.com/search?q=site:sberbank.ru+${cleanNum}" target="_blank" class="link-btn">Сбербанк <span>➔</span></a>
+                <a href="https://www.google.com/search?q=site:tinkoff.ru+${cleanNum}" target="_blank" class="link-btn">Тинькофф <span>➔</span></a>
+                <a href="https://www.google.com/search?q=site:alfabank.ru+${cleanNum}" target="_blank" class="link-btn">Альфа-Банк <span>➔</span></a>
+            `;
+            container.appendChild(card2);
+
+            // 3. Карточка: Школа / Макс
+            const card3 = document.createElement('div');
+            card3.className = 'card';
+            card3.style.setProperty('--color', '#ff0055');
+            card3.innerHTML = `
+                <div class="card-title">Школа / Приложения</div>
+                <a href="https://www.google.com/search?q=site:school.mos.ru+${cleanNum}" target="_blank" class="link-btn">Проверить в Максе (МЭШ) <span>➔</span></a>
+                <a href="https://www.google.com/search?q=%22${query}%22+site:vk.com" target="_blank" class="link-btn">Поиск в ВК (ручной) <span>➔</span></a>
+            `;
+            container.appendChild(card3);
+
+            // 4. Карточка: Суды
+            const card4 = document.createElement('div');
+            card4.className = 'card';
+            card4.style.setProperty('--color', '#ff3b5c');
+            card4.innerHTML = `
+                <div class="card-title">Судебные дела</div>
+                <a href="https://sudrf.ru/index.php?id=300&searchtext=${cleanNum}" target="_blank" class="link-btn">Проверить в Судах РФ <span>➔</span></a>
+            `;
+            container.appendChild(card4);
+
+            // Запускаем анимацию появления карточек
+            setTimeout(() => {
+                const cards = document.querySelectorAll('.card');
+                cards.forEach((card, index) => {
+                    setTimeout(() => {
+                        card.classList.add('show');
+                        if (Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                    }, index * 150);
+                });
+            }, 50);
+        }
+    </script>
+</body>
+</html>
