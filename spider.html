@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Profession Radar</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: #050508; color: #fff; overflow-x: hidden; min-height: 100vh; }
+        
+        /* Сетка фона (как в терминале) */
+        .bg-grid { position: fixed; inset: 0; background-image: linear-gradient(rgba(0, 255, 136, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 136, 0.05) 1px, transparent 1px); background-size: 30px 30px; z-index: -1; pointer-events: none; }
+        
+        .header { padding: 20px; text-align: center; position: relative; z-index: 10; background: linear-gradient(180deg, #050508 50%, transparent); }
+        .header h1 { font-size: 22px; font-weight: 900; letter-spacing: 2px; color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.5);}
+        .header h1 span { color: #00ff88; }
+        .header p { font-size: 11px; color: #666; margin-top: 5px; text-transform: uppercase; }
+
+        /* Контейнер для графа */
+        .graph-container { position: relative; width: 100%; height: 350px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-top: -20px;}
+        
+        /* Центральный узел */
+        .central-node { 
+            width: 120px; height: 120px; border-radius: 50%; background: #0a0a0f; border: 2px solid #00ff88;
+            display: flex; align-items: center; justify-content: center; text-align: center;
+            font-weight: 900; font-size: 13px; color: #00ff88; box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+            position: relative; z-index: 2; cursor: pointer; transition: 0.3s;
+        }
+        .central-node:active { transform: scale(0.95); }
+
+        /* Линии (SVG) */
+        .svg-lines { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
+        .line { stroke: rgba(0, 255, 136, 0.3); stroke-width: 1.5; transition: 0.3s; }
+
+        /* Узлы категорий */
+        .category-nodes { position: absolute; inset: 0; z-index: 3; }
+        .cat-node {
+            position: absolute; width: 80px; height: 80px; border-radius: 50%; background: #11111a;
+            border: 1px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: bold; color: #ccc; text-align: center; cursor: pointer;
+            transition: 0.3s; padding: 5px;
+        }
+        .cat-node:hover, .cat-node:active { border-color: #00ff88; color: #00ff88; box-shadow: 0 0 15px rgba(0, 255, 136, 0.2); }
+        .cat-node.active { border-color: #00ff88; background: #00ff88; color: #000; box-shadow: 0 0 25px rgba(0, 255, 136, 0.5); }
+
+        /* Панель с профессиями */
+        .professions-panel {
+            position: fixed; bottom: 0; left: 0; right: 0; height: 60vh;
+            background: #0a0a0f; border-top: 2px solid #00ff88; border-radius: 24px 24px 0 0;
+            transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 100; padding: 20px; overflow-y: auto;
+        }
+        .professions-panel.open { transform: translateY(0); }
+        
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .panel-title { font-size: 18px; font-weight: 900; color: #00ff88; text-transform: uppercase; }
+        .close-btn { background: #222; border: none; color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 18px; cursor: pointer; }
+
+        /* Карточки профессий */
+        .prof-card {
+            background: #11111a; border-radius: 12px; padding: 15px; margin-bottom: 10px;
+            border-left: 3px solid #00ff88; display: flex; justify-content: space-between; align-items: center;
+        }
+        .prof-name { font-size: 14px; font-weight: bold; margin-bottom: 4px; }
+        .prof-desc { font-size: 11px; color: #888; }
+        .prof-salary { font-size: 14px; font-weight: 900; color: #00ff88; text-align: right; white-space: nowrap; }
+    </style>
+</head>
+<body>
+
+    <div class="bg-grid"></div>
+
+    <div class="header">
+        <h1>PROFESSION <span>RADAR</span></h1>
+        <p>Интерактивная карта профессий</p>
+    </div>
+
+    <div class="graph-container" id="graph">
+        <svg class="svg-lines" id="svgLines"></svg>
+        <div class="central-node" onclick="closePanel()">
+            КАРТА<br>ПРОФЕССИЙ
+        </div>
+        <div class="category-nodes" id="catNodes"></div>
+    </div>
+
+    <!-- Панель с профессиями -->
+    <div class="professions-panel" id="profPanel">
+        <div class="panel-header">
+            <div class="panel-title" id="panelTitle">Категория</div>
+            <button class="close-btn" onclick="closePanel()">✕</button>
+        </div>
+        <div id="profList"></div>
+    </div>
+
+    <script>
+        Telegram.WebApp.ready();
+        Telegram.WebApp.setBackgroundColor('#050508');
+
+        // БАЗА ДАННЫХ ПРОФЕССИЙ (50+ штук для старта)
+        const database = {
+            dangerous: {
+                title: "Опасные",
+                color: "#ff3b5c",
+                jobs: [
+                    { name: "Шахтёр", salary: "80 000 - 150 000 ₽" },
+                    { name: "Промышленный альпинист", salary: "60 000 - 120 000 ₽" },
+                    { name: "Электромонтёр высоковольтных сетей", salary: "70 000 - 140 000 ₽" },
+                    { name: "Водолаз", salary: "100 000 - 250 000 ₽" },
+                    { name: "Вахтовик (Север)", salary: "150 000 - 300 000 ₽" },
+                    { name: "Пожарный", salary: "40 000 - 70 000 ₽" },
+                    { name: "Каскадёр", salary: "от 50 000 ₽ за проект" },
+                    { name: "Взрывотехник", salary: "80 000 - 150 000 ₽" }
+                ]
+            },
+            rich: {
+                title: "Много платят",
+                color: "#00ff88",
+                jobs: [
+                    { name: "IT-Архитектор / Senior Developer", salary: "250 000 - 500 000 ₽" },
+                    { name: "Нефтяной инженер", salary: "150 000 - 350 000 ₽" },
+                    { name: "Стоматолог-ортопед", salary: "150 000 - 400 000 ₽" },
+                    { name: "Пилот гражданской авиации", salary: "200 000 - 500 000 ₽" },
+                    { name: "Финансовый аналитик", salary: "120 000 - 300 000 ₽" },
+                    { name: "Директор завода", salary: "200 000 - 600 000 ₽" },
+                    { name: "DevOps-инженер", salary: "180 000 - 350 000 ₽" },
+                    { name: "Юрист по корпоративному праву", salary: "150 000 - 300 000 ₽" },
+                    { name: "Сварщик (НАКС)", salary: "100 000 - 250 000 ₽" }
+                ]
+            },
+            it: {
+                title: "IT и Кибербезопасность",
+                color: "#00bfff",
+                jobs: [
+                    { name: "Frontend-разработчик", salary: "100 000 - 250 000 ₽" },
+                    { name: "Backend-разработчик", salary: "120 000 - 300 000 ₽" },
+                    { name: "Специалист по кибербезопасности", salary: "150 000 - 350 000 ₽" },
+                    { name: "Системный администратор", salary: "60 000 - 120 000 ₽" },
+                    { name: "Геймдизайнер", salary: "80 000 - 180 000 ₽" },
+                    { name: "Тестировщик (QA)", salary: "70 000 - 150 000 ₽" },
+                    { name: "Product-менеджер", salary: "180 000 - 400 000 ₽" }
+                ]
+            },
+            creative: {
+                title: "Творческие",
+                color: "#ffd700",
+                jobs: [
+                    { name: "Дизайнер интерьеров", salary: "80 000 - 200 000 ₽" },
+                    { name: "Видеомонтажёр / Колорист", salary: "60 000 - 150 000 ₽" },
+                    { name: "Контент-мейкер (TikTok/YouTube)", salary: "50 000 - 500 000 ₽" },
+                    { name: "Архитектор", salary: "80 000 - 200 000 ₽" },
+                    { name: "Фотограф", salary: "40 000 - 150 000 ₽" },
+                    { name: "Копирайтер", salary: "40 000 - 100 000 ₽" }
+                ]
+            },
+            workers: {
+                title: "Рабочие",
+                color: "#a855f7",
+                jobs: [
+                    { name: "Электрик", salary: "50 000 - 150 000 ₽" },
+                    { name: "Сантехник", salary: "50 000 - 120 000 ₽" },
+                    { name: "Токарь на ЧПУ", salary: "80 000 - 180 000 ₽" },
+                    { name: "Крановщик", salary: "60 000 - 120 000 ₽" },
+                    { name: "Механик по ремонту авто", salary: "60 000 - 150 000 ₽" },
+                    { name: "Плотник / Столяр", salary: "50 000 - 120 000 ₽" }
+                ]
+            },
+            business: {
+                title: "Бизнес",
+                color: "#ff8c00",
+                jobs: [
+                    { name: "Предприниматель", salary: "Без потолка" },
+                    { name: "Селлер на маркетплейсах", salary: "50 000 - 1 000 000 ₽" },
+                    { name: "Менеджер по продажам B2B", salary: "80 000 - 250 000 ₽" },
+                    { name: "Логист", salary: "60 000 - 150 000 ₽" },
+                    { name: "HR-директор", salary: "100 000 - 250 000 ₽" }
+                ]
+            }
+        };
+
+        const graph = document.getElementById('graph');
+        const catNodesContainer = document.getElementById('catNodes');
+        const svgLines = document.getElementById('svgLines');
+        const keys = Object.keys(database);
+
+        // Строим граф
+        function buildGraph() {
+            catNodesContainer.innerHTML = '';
+            svgLines.innerHTML = '';
+            
+            const centerX = graph.offsetWidth / 2;
+            const centerY = graph.offsetHeight / 2;
+            const radius = Math.min(centerX, centerY) - 50;
+
+            keys.forEach((key, index) => {
+                const data = database[key];
+                const angle = (Math.PI * 2 / keys.length) * index - Math.PI / 2; // Начинаем сверху
+                const x = centerX + radius * Math.cos(angle) - 40; // -40 (половина ширины)
+                const y = centerY + radius * Math.sin(angle) - 40;
+
+                // Создаем линию
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', centerX);
+                line.setAttribute('y1', centerY);
+                line.setAttribute('x2', x + 40);
+                line.setAttribute('y2', y + 40);
+                line.setAttribute('class', 'line');
+                line.setAttribute('id', 'line-' + key);
+                svgLines.appendChild(line);
+
+                // Создаем узел
+                const node = document.createElement('div');
+                node.className = 'cat-node';
+                node.id = 'node-' + key;
+                node.style.left = x + 'px';
+                node.style.top = y + 'px';
+                node.innerHTML = data.title;
+                node.onclick = () => openCategory(key);
+                catNodesContainer.appendChild(node);
+            });
+        }
+
+        // Открываем категорию
+        function openCategory(key) {
+            const data = database[key];
+            
+            // Подсветка узла
+            document.querySelectorAll('.cat-node').forEach(n => n.classList.remove('active'));
+            document.getElementById('node-' + key).classList.add('active');
+            
+            // Подсветка линии
+            document.querySelectorAll('.line').forEach(l => l.style.stroke = 'rgba(0, 255, 136, 0.3)');
+            document.getElementById('line-' + key).style.stroke = data.color;
+
+            // Заполняем панель
+            document.getElementById('panelTitle').innerText = data.title;
+            document.getElementById('panelTitle').style.color = data.color;
+            
+            const list = document.getElementById('profList');
+            list.innerHTML = '';
+            
+            data.jobs.forEach(job => {
+                const card = document.createElement('div');
+                card.className = 'prof-card';
+                card.style.borderLeftColor = data.color;
+                card.innerHTML = `
+                    <div>
+                        <div class="prof-name">${job.name}</div>
+                        <div class="prof-desc">Средняя по РФ</div>
+                    </div>
+                    <div class="prof-salary" style="color: ${data.color}">${job.salary}</div>
+                `;
+                list.appendChild(card);
+            });
+
+            // Открываем панель
+            document.getElementById('profPanel').classList.add('open');
+            if (Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+        }
+
+        function closePanel() {
+            document.getElementById('profPanel').classList.remove('open');
+            document.querySelectorAll('.cat-node').forEach(n => n.classList.remove('active'));
+            document.querySelectorAll('.line').forEach(l => l.style.stroke = 'rgba(0, 255, 136, 0.3)');
+        }
+
+        // Перестраиваем при ресайзе
+        window.addEventListener('resize', buildGraph);
+        
+        // Запуск
+        setTimeout(buildGraph, 100);
+    </script>
+</body>
+</html>
