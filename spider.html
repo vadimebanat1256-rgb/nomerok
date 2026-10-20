@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OSINT Framework: Professions</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Consolas', monospace; }
+        body { background: #0a0a0a; color: #fff; overflow: hidden; height: 100vh; }
+        
+        .header { 
+            position: absolute; top: 0; left: 0; right: 0; z-index: 10; 
+            padding: 15px; background: linear-gradient(180deg, #0a0a0a 0%, transparent 100%);
+            pointer-events: none; text-align: center;
+        }
+        .header h1 { font-size: 20px; font-weight: bold; color: #ccc; letter-spacing: 1px; text-shadow: 0 0 10px rgba(255,255,255,0.2);}
+        .header p { font-size: 11px; color: #666; margin-top: 5px; }
+
+        #graph-container {
+            width: 100vw; height: 100vh;
+            cursor: grab;
+        }
+        #graph-container:active { cursor: grabbing; }
+
+        /* Стили для линий (Плавная отрисовка) */
+        .link {
+            fill: none;
+            stroke: #888;
+            stroke-width: 1px;
+            opacity: 0.6;
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            transition: stroke 0.3s, opacity 0.3s;
+        }
+        .link.drawn {
+            animation: drawLine 0.8s ease forwards;
+        }
+        @keyframes drawLine {
+            to { stroke-dashoffset: 0; }
+        }
+        .link.highlight {
+            stroke: #00ff88;
+            opacity: 1;
+            stroke-width: 1.5px;
+        }
+
+        /* Узлы */
+        .node {
+            cursor: pointer;
+        }
+        .node circle {
+            fill: #000;
+            stroke: #888;
+            stroke-width: 1.5px;
+            transition: all 0.2s;
+        }
+        .node:hover circle { stroke: #fff; r: 6; }
+        
+        .node text {
+            fill: #aaa;
+            font-size: 11px;
+            pointer-events: none;
+            text-shadow: 1px 1px 2px #000;
+        }
+        .node:hover text { fill: #fff; }
+        .node.active text { fill: #00ff88; font-weight: bold; }
+        .node.active circle { stroke: #00ff88; fill: #002211; r: 5; }
+
+        /* Центральный узел */
+        .center-node circle {
+            fill: #000;
+            stroke: #fff;
+            stroke-width: 2px;
+            r: 12;
+        }
+        .center-node text {
+            fill: #fff;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* Текстовые блоки (вместо окон) */
+        .info-text {
+            font-size: 10px;
+            fill: #aaa;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+        .info-text.show { opacity: 1; }
+        
+        .salary-text { fill: #00ff88; font-weight: bold; font-size: 11px; }
+        .desc-text { fill: #888; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>PROFESSION FRAMEWORK</h1>
+        <p>Нажми на узел, чтобы раскрыть ветку</p>
+    </div>
+
+    <svg id="graph-container"></svg>
+
+    <script>
+        Telegram.WebApp.ready();
+
+        // ================= ОГРОМНАЯ БАЗА ПРОФЕССИЙ =================
+        // Данные скомпонованы так, чтобы текст красиво ложился рядом с узлами
+        const data = {
+            name: "ПРОФЕССИИ",
+            type: "center",
+            children: [
+                {
+                    name: "ОПАСНЫЕ",
+                    children: [
+                        { name: "Шахтер", salary: "80-150к", desc: "Работа под землей.", exam: "Колледж, физкультура." },
+                        { name: "Альпинист", salary: "60-200к", desc: "Работа на высоте.", exam: "Курсы промальпа." },
+                        { name: "Взрывотехник", salary: "100-250к", desc: "Работа со взрывчаткой.", exam: "Военное/тех. образование." },
+                        { name: "Пожарный", salary: "40-80к", desc: "Тушение пожаров.", exam: "Академия МЧС." },
+                        { name: "Водолаз", salary: "100-300к", desc: "Работа под водой.", exam: "Водолазные курсы." },
+                        { name: "Летчик-испытатель", salary: "200-500к", desc: "Тесты новых самолетов.", exam: "Летное училище." },
+                        { name: "Сапер", salary: "150-300к", desc: "Разминирование.", exam: "Военная служба." },
+                        { name: "Каскадер", salary: "50-150к", desc: "Трюки в кино.", exam: "Спорт. подготовка." }
+                    ]
+                },
+                {
+                    name: "IT И ТЕХНОЛОГИИ",
+                    children: [
+                        { name: "IT-Архитектор", salary: "250-500к", desc: "Проектирование систем.", exam: "Опыт 5+ лет." },
+                        { name: "Кибербезопасник", salary: "150-350к", desc: "Защита данных.", exam: "Сертификаты (CEH)." },
+                        { name: "Python-разраб", salary: "100-250к", desc: "Боты, бэкенд.", exam: "Знание Python." },
+                        { name: "Frontend", salary: "80-200к", desc: "Сайты и интерфейсы.", exam: "JS, React." },
+                        { name: "DevOps", salary: "180-350к", desc: "Сервера и деплой.", exam: "Linux, Docker." },
+                        { name: "Геймдев", salary: "70-200к", desc: "Создание игр.", exam: "Unity/Unreal." },
+                        { name: "Тестировщик", salary: "60-150к", desc: "Поиск багов.", exam: "Курсы QA." },
+                        { name: "Data Scientist", salary: "200-400к", desc: "Анализ данных, ИИ.", exam: "Математика, ML." }
+                    ]
+                },
+                {
+                    name: "БОЛЬШИЕ ДЕНЬГИ",
+                    children: [
+                        { name: "Нефтяник", salary: "200-500к", desc: "Добыча нефти.", exam: "Горный вуз." },
+                        { name: "Стоматолог", salary: "150-400к", desc: "Лечение зубов.", exam: "Мед. вуз." },
+                        { name: "Пилот", salary: "200-600к", desc: "Управление самолетом.", exam: "Летное училище." },
+                        { name: "Хирург", salary: "200-700к", desc: "Сложные операции.", exam: "Мед. вуз + ординатура." },
+                        { name: "Брокер", salary: "50-1000к", desc: "Торговля на бирже.", exam: "Фин. образование." },
+                        { name: "Селлер WB", salary: "100-1000к", desc: "Продажи на маркетплейсах.", exam: "Знание аналитики." },
+                        { name: "Главный инженер", salary: "150-300к", desc: "Управление заводом.", exam: "Тех. вуз." }
+                    ]
+                },
+                {
+                    name: "РАБОЧИЕ",
+                    children: [
+                        { name: "Электрик", salary: "60-150к", desc: "Проводка, щитки.", exam: "Колледж, разряд." },
+                        { name: "Сантехник", salary: "60-120к", desc: "Ремонт труб.", exam: "Колледж." },
+                        { name: "Сварщик", salary: "80-250к", desc: "Сварка металла.", exam: "НАКС аттестация." },
+                        { name: "Токарь ЧПУ", salary: "80-180к", desc: "Работа на станках.", exam: "Колледж, практика." },
+                        { name: "Дальнобойщик", salary: "80-180к", desc: "Перевозка грузов.", exam: "Права CE, стаж." },
+                        { name: "Крановщик", salary: "60-120к", desc: "Управление краном.", exam: "Права на кран." },
+                        { name: "Механик авто", salary: "60-150к", desc: "Ремонт машин.", exam: "Курсы/колледж." }
+                    ]
+                },
+                {
+                    name: "МАРКЕТИНГ / БИЗНЕС",
+                    children: [
+                        { name: "Маркетолог", salary: "80-200к", desc: "Продвижение товаров.", exam: "Вуз/курсы." },
+                        { name: "HR-директор", salary: "150-300к", desc: "Подбор персонала.", exam: "Опыт управления." },
+                        { name: "Логист", salary: "60-150к", desc: "Организация поставок.", exam: "Вуз/логистика." },
+                        { name: "Юрист", salary: "80-300к", desc: "Судебные дела.", exam: "Юрфак." },
+                        { name: "Бухгалтер", salary: "50-150к", desc: "Учет финансов.", exam: "Вуз/курсы." },
+                        { name: "Предприниматель", salary: "∞", desc: "Свой бизнес.", exam: "Опыт и связи." }
+                    ]
+                }
+            ]
+        };
+
+        // ================= НАСТРОЙКИ ГРАФА =================
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const svg = document.getElementById('graph-container');
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        
+        // Начальное положение центра (смещено влево, чтобы ветки помещались)
+        let centerX = width / 2;
+        let centerY = height / 2;
+
+        // Создаем группу для линий и узлов, чтобы можно было двигать всё вместе
+        const svgGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        svg.appendChild(svgGroup);
+
+        function createLine(x1, y1, x2, y2) {
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            const midX = (x1 + x2) / 2;
+            const d = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
+            path.setAttribute("d", d);
+            path.setAttribute("class", "link");
+            svgGroup.appendChild(path);
+            // Даем пинок для анимации
+            setTimeout(() => path.classList.add('drawn'), 50);
+            return path;
+        }
+
+        function createNode(x, y, label, isCenter, onClick) {
+            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.setAttribute("class", isCenter ? "node center-node" : "node");
+            g.setAttribute("transform", `translate(${x}, ${y})`);
+            
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            circle.setAttribute("r", isCenter ? 12 : 4);
+            
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("dx", "10");
+            text.setAttribute("dy", "4");
+            text.textContent = label;
+            
+            g.appendChild(circle);
+            g.appendChild(text);
+            if (onClick) g.addEventListener('click', onClick);
+            svgGroup.appendChild(g);
+            return g;
+        }
+
+        // Информационный блок
+        function createInfoText(x, y, text, className) {
+            const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            t.setAttribute("x", x + 10);
+            t.setAttribute("y", y + 12);
+            t.setAttribute("class", "info-text " + className);
+            t.textContent = text;
+            svgGroup.appendChild(t);
+            setTimeout(() => t.classList.add('show'), 100);
+            return t;
+        }
+
+        let isCenterOpen = false;
+        let catNodes = [];
+        let activeJobNodes = [];
+
+        // Рисуем центр
+        const centerNode = createNode(centerX, centerY, "ПРОФЕССИИ", true, toggleCenter);
+
+        function toggleCenter() {
+            if (!isCenterOpen) {
+                isCenterOpen = true;
+                drawCategories();
+            }
+        }
+
+        function drawCategories() {
+            const cats = data.children;
+            const count = cats.length;
+            // Радиус, на котором будут висеть категории
+            const radius = Math.min(width, height) / 3;
+            
+            cats.forEach((cat, i) => {
+                const angle = (Math.PI * 2 / count) * i - Math.PI / 2;
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+                
+                const line = createLine(centerX, centerY, x, y);
+                
+                const node = createNode(x, y, cat.name, false, () => {
+                    // Сброс других веток, если открыты
+                    clearJobs(); 
+                    node.classList.add('active');
+                    line.classList.add('highlight');
+                    drawJobs(cat, x, y, angle);
+                });
+                
+                catNodes.push({node, line, x, y, cat});
+            });
+        }
+
+        function drawJobs(cat, startX, startY, baseAngle) {
+            const jobs = cat.children;
+            const count = jobs.length;
+            
+            // Угол разброса веток (чем больше профессий, тем шире разброс)
+            const spreadAngle = Math.PI / 1.2; 
+            
+            jobs.forEach((job, i) => {
+                // Вычисляем угол для каждой профессии
+                const angle = baseAngle - spreadAngle/2 + (spreadAngle / Math.max(count - 1, 1)) * i;
+                const dist = 120 + Math.random() * 40; // Случайная длина ветки
+                
+                const x = startX + dist * Math.cos(angle);
+                const y = startY + dist * Math.sin(angle);
+                
+                const line = createLine(startX, startY, x, y);
+                line.style.strokeDasharray = "500";
+                line.style.strokeDashoffset = "500";
+                setTimeout(() => {
+                    line.style.transition = "stroke-dashoffset 0.8s ease";
+                    line.style.strokeDashoffset = "0";
+                }, 100);
+                
+                const node = createNode(x, y, job.name, false, () => showJobInfo(job, x, y, line));
+                
+                activeJobNodes.push({node, line, x, y});
+            });
+        }
+
+        function showJobInfo(job, x, y, line) {
+            // Подсвечиваем
+            activeJobNodes.forEach(n => {
+                n.node.classList.remove('active');
+                n.line.classList.remove('highlight');
+            });
+            nodeElement = activeJobNodes.find(n => n.x === x && n.y === y);
+            if (nodeElement) {
+                nodeElement.node.classList.add('active');
+                nodeElement.line.classList.add('highlight');
+            }
+            
+            // Удаляем старые тексты
+            svgGroup.querySelectorAll('.info-text').forEach(el => el.remove());
+
+            // Добавляем тексты рядом
+            // Смещение текста в сторону от центра категории
+            let textX = x;
+            let textY = y;
+            
+            // Проверяем, чтобы текст не улетел за экран
+            if (x > width - 150) textX -= 150;
+            if (y > height - 60) textY -= 60;
+
+            createInfoText(textX, textY, "💰 " + job.salary, "salary-text");
+            createInfoText(textX, textY, job.desc, "desc-text");
+            createInfoText(textX, textY, "🎓 " + job.exam, "info-text");
+            
+            // Дополнительные смещения, чтобы не накладывались
+            const texts = svgGroup.querySelectorAll('.info-text');
+            texts.forEach((t, index) => {
+                t.setAttribute("y", parseFloat(t.getAttribute("y")) + index * 15);
+            });
+        }
+
+        function clearJobs() {
+            activeJobNodes.forEach(n => {
+                n.line.remove();
+                n.node.remove();
+            });
+            activeJobNodes = [];
+            catNodes.forEach(n => {
+                n.node.classList.remove('active');
+                n.line.classList.remove('highlight');
+            });
+            svgGroup.querySelectorAll('.info-text').forEach(el => el.remove());
+        }
+
+        // ================= ПЕРЕМЕЩЕНИЕ И ЗУМ =================
+        let isDragging = false;
+        let startX, startY, viewBoxX, viewBoxY;
+
+        svg.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            const vb = svg.viewBox.baseVal;
+            viewBoxX = vb.x;
+            viewBoxY = vb.y;
+        });
+
+        svg.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            svg.setAttribute('viewBox', `${viewBoxX - dx} ${viewBoxY - dy} ${width} ${height}`);
+        });
+
+        svg.addEventListener('mouseup', () => isDragging = false);
+        svg.addEventListener('mouseleave', () => isDragging = false);
+        
+        // Зум
+        svg.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const vb = svg.viewBox.baseVal;
+            const scale = e.deltaY > 0 ? 1.1 : 0.9;
+            const newW = width * scale;
+            const newH = height * scale;
+            // Зум к центру
+            const newX = vb.x + (width - newW) / 2;
+            const newY = vb.y + (height - newH) / 2;
+            svg.setAttribute('viewBox', `${newX} ${newY} ${newW} ${newH}`);
+        }, { passive: false });
+
+    </script>
+</body>
+</html>
