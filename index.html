@@ -3,152 +3,143 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#000000">
 <title>Не курю</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="manifest" href="data:application/manifest+json,{%22name%22:%22Не%20курю%22,%22short_name%22:%22Не%20курю%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%23000%22,%22theme_color%22:%22%23000%22}">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html, body {
-    height: 100%;
-    background: #000;
-    color: #fff;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
-    overflow: hidden;
-    user-select: none;
+    height:100%; background:#000; color:#fff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow:hidden; user-select:none;
   }
   #app {
-    position: relative;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background: radial-gradient(ellipse at 50% 30%, #0a0a14 0%, #000 70%);
+    display:flex; flex-direction:column; height:100dvh;
+    max-width:480px; margin:0 auto; padding:12px;
   }
 
-  /* --- ДЕРЕВО --- */
+  /* ===== ДЕРЕВО ===== */
   .tree-wrap {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 62vh;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    pointer-events: none;
-    z-index: 1;
+    flex:1; display:flex; align-items:center; justify-content:center;
+    position:relative; min-height:0;
   }
-  .tree-wrap svg {
-    width: 100%;
-    max-width: 500px;
-    height: auto;
-  }
-  .leaf {
-    animation: sway 4s ease-in-out infinite;
-    transform-origin: center;
-  }
-  .leaf:nth-child(odd) { animation-delay: -1s; }
-  .leaf:nth-child(3n) { animation-delay: -2s; }
+  svg.tree { width:100%; height:100%; max-height:55vh; }
+
+  /* крона — белая листва, растёт с прогрессом */
+  .crown { transition: transform 1.2s cubic-bezier(.2,.8,.2,1), opacity 1.2s; transform-origin: 50% 60%; }
+  .crown circle { fill:#fff; opacity:.95; }
+  .crown .dim { fill:#333; opacity:1; }
+  .branch { stroke:#fff; stroke-linecap:round; fill:none; }
+  .trunk { fill:#fff; }
+
+  /* лёгкое покачивание ветра */
   @keyframes sway {
-    0%, 100% { transform: rotate(-2deg); }
-    50% { transform: rotate(2deg); }
+    0%,100% { transform: rotate(0deg); }
+    50%     { transform: rotate(.6deg); }
   }
-  .glow {
-    filter: drop-shadow(0 0 8px rgba(255,255,255,0.35));
+  .crown { animation: sway 6s ease-in-out infinite; }
+
+  /* ===== СЧЁТЧИК ===== */
+  .stats {
+    display:flex; justify-content:center; gap:10px; padding:8px 0 4px;
+  }
+  .stat {
+    flex:1; text-align:center; padding:10px 6px; border-radius:16px;
+    background:#0a0a0a; border:1px solid #222;
+  }
+  .stat b { display:block; font-size:26px; font-weight:800; letter-spacing:-1px; }
+  .stat span { font-size:11px; color:#888; text-transform:uppercase; letter-spacing:1px; }
+
+  /* ===== КНОПКИ + / − ===== */
+  .actions {
+    display:flex; gap:12px; padding:10px 0;
+  }
+  .btn-big {
+    flex:1; height:64px; border-radius:20px; border:none;
+    font-size:15px; font-weight:800; letter-spacing:.5px;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    cursor:pointer; position:relative; overflow:hidden;
+    color:#000; background:#fff;
+    transition: transform .15s ease, box-shadow .3s;
+  }
+  .btn-big:active { transform: scale(.96); }
+  .btn-big.dark { background:#111; color:#fff; border:1px solid #333; }
+
+  /* переливание на кнопках */
+  .btn-big::after {
+    content:''; position:absolute; top:0; left:-150%; width:80%; height:100%;
+    background: linear-gradient(100deg, transparent, rgba(255,255,255,.5), transparent);
+    animation: shine 3.2s infinite;
+  }
+  .btn-big.dark::after {
+    background: linear-gradient(100deg, transparent, rgba(255,255,255,.15), transparent);
+  }
+  @keyframes shine {
+    0% { left:-150%; }
+    55% { left:150%; }
+    100% { left:150%; }
   }
 
-  /* --- ЦЕНТРАЛЬНЫЙ СЧЁТЧИК --- */
-  .counter {
-    position: relative;
-    z-index: 2;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding-top: 8vh;
-    text-align: center;
+  /* ===== НИЖНЯЯ ПАНЕЛЬ (android-стиль) ===== */
+  .navbar {
+    display:flex; justify-content:space-around; align-items:center;
+    padding:12px 6px 18px; border-top:1px solid #1a1a1a; margin-top:4px;
   }
-  .counter .label {
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 4px;
-    color: rgba(255,255,255,0.4);
-    margin-bottom: 12px;
-    font-weight: 500;
+  .nav-btn {
+    width:56px; height:56px; border-radius:18px; border:1px solid #222;
+    background:#0a0a0a; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; transition: transform .12s, background .2s, border-color .3s;
   }
-  .counter .big {
-    font-size: 64px;
-    font-weight: 800;
-    line-height: 1;
-    background: linear-gradient(180deg, #fff 0%, rgba(255,255,255,0.5) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    letter-spacing: -2px;
+  .nav-btn:active { transform:scale(.9); background:#161616; }
+  .nav-btn svg { width:24px; height:24px; stroke:#fff; fill:none; stroke-width:2; }
+  .nav-btn.active { border-color:#fff; background:#1a1a1a; }
+
+  /* ===== ЭКРАНЫ / МОДАЛКИ ===== */
+  .sheet {
+    position:fixed; inset:0; background:rgba(0,0,0,.92);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:24px; z-index:50;
+    opacity:0; pointer-events:none; transition: opacity .3s;
   }
-  .counter .unit {
-    font-size: 18px;
-    color: rgba(255,255,255,0.5);
-    margin-top: 6px;
-    font-weight: 500;
+  .sheet.show { opacity:1; pointer-events:auto; }
+  .card {
+    width:100%; max-width:420px; max-height:80vh; overflow-y:auto;
+    background:#0d0d0d; border:1px solid #222; border-radius:24px;
+    padding:24px 20px; text-align:left;
   }
-  .substats {
-    display: flex;
-    gap: 24px;
-    margin-top: 28px;
+  .card h2 { font-size:20px; margin-bottom:14px; font-weight:800; letter-spacing:-.5px; }
+  .card p { font-size:15px; line-height:1.55; color:#ccc; margin-bottom:12px; }
+  .card p b { color:#fff; }
+  .card .tip {
+    font-size:14px; line-height:1.5; color:#aaa; padding:10px 0;
+    border-bottom:1px solid #181818;
   }
-  .substat {
-    text-align: center;
+  .card .tip:last-of-type { border:none; }
+  .close-btn {
+    margin-top:20px; width:100%; height:52px; border-radius:16px;
+    background:#fff; color:#000; border:none; font-weight:800; font-size:15px;
+    cursor:pointer;
   }
-  .substat .val {
-    font-size: 20px;
-    font-weight: 700;
-    color: #fff;
-  }
-  .substat .lbl {
-    font-size: 11px;
-    color: rgba(255,255,255,0.35);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-top: 2px;
+  .close-btn:active { transform:scale(.97); }
+
+  /* числа тяг */
+  .num-input {
+    width:100%; height:56px; border-radius:16px; border:1px solid #333;
+    background:#000; color:#fff; font-size:22px; font-weight:800;
+    text-align:center; margin:10px 0 16px;
   }
 
-  /* --- НИЖНЕЕ МЕНЮ --- */
-  .menu {
-    position: relative;
-    z-index: 3;
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    padding: 14px 12px calc(14px + env(safe-area-inset-bottom));
-    margin: 0 12px 12px;
-    background: rgba(20, 20, 28, 0.65);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 24px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+  /* flash-уведомление */
+  .toast {
+    position:fixed; bottom:110px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:#fff; color:#000; padding:12px 20px; border-radius:14px;
+    font-weight:700; font-size:14px; opacity:0; transition:.3s; z-index:100;
+    pointer-events:none;
   }
-  .menu-btn {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-    padding: 8px 4px;
-    background: none;
-    border: none;
-    color: rgba(255,255,255,0.45);
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    border-radius: 16px;
-    transition: all 0.2s;
-    font-family: inherit;
-  }
-  .menu-btn:active { transform: scale(0.92); background: rgba(255,255,255,0.05); }
-  .menu-btn svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.8; }
-  .menu-btn.primary {
-    color: #fff;
-    background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05));
-  }
-  .menu-btn.danger { color: #ff5c5c; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* секретный сброс */
+  .reset-link { margin-top:12px; font-size:12px; color:#444; text-align:center; width:100%; }
 </style>
 </head>
 <body>
@@ -156,169 +147,262 @@
 
   <!-- ДЕРЕВО -->
   <div class="tree-wrap">
-    <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="trunk" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#2a2a35"/>
-          <stop offset="100%" stop-color="#15151c"/>
-        </linearGradient>
-        <radialGradient id="leafg" cx="50%" cy="40%" r="60%">
-          <stop offset="0%" stop-color="#ffffff"/>
-          <stop offset="100%" stop-color="#c8c8d4"/>
-        </radialGradient>
-      </defs>
-      <!-- Ствол -->
-      <path d="M200 400 Q196 320 190 260 Q185 210 170 160 Q160 130 140 100 Q130 85 120 75 Q135 90 155 115 Q170 140 178 170 Q185 200 192 250 Q196 300 200 400 Z" fill="url(#trunk)"/>
-      <path d="M200 400 Q204 320 210 260 Q215 210 230 160 Q240 130 260 100 Q270 85 280 75 Q265 90 245 115 Q230 140 222 170 Q215 200 208 250 Q204 300 200 400 Z" fill="url(#trunk)"/>
-      <path d="M200 400 Q199 340 200 260 Q201 200 200 150" stroke="#1e1e28" stroke-width="4" fill="none"/>
-      <!-- Ветви -->
-      <path d="M190 200 Q150 170 110 150" stroke="#22222d" stroke-width="3" fill="none" stroke-linecap="round"/>
-      <path d="M210 200 Q250 170 290 150" stroke="#22222d" stroke-width="3" fill="none" stroke-linecap="round"/>
-      <path d="M195 260 Q160 240 130 230" stroke="#22222d" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-      <path d="M205 260 Q240 240 270 230" stroke="#22222d" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-
-      <!-- Листва (белая) -->
-      <g class="glow">
-        <circle class="leaf" cx="120" cy="140" r="38" fill="url(#leafg)" opacity="0.95"/>
-        <circle class="leaf" cx="280" cy="140" r="38" fill="url(#leafg)" opacity="0.95"/>
-        <circle class="leaf" cx="200" cy="100" r="46" fill="url(#leafg)" opacity="0.95"/>
-        <circle class="leaf" cx="90" cy="200" r="28" fill="url(#leafg)" opacity="0.85"/>
-        <circle class="leaf" cx="310" cy="200" r="28" fill="url(#leafg)" opacity="0.85"/>
-        <circle class="leaf" cx="150" cy="180" r="30" fill="url(#leafg)" opacity="0.9"/>
-        <circle class="leaf" cx="250" cy="180" r="30" fill="url(#leafg)" opacity="0.9"/>
-        <circle class="leaf" cx="200" cy="160" r="34" fill="url(#leafg)" opacity="0.9"/>
-        <circle class="leaf" cx="200" cy="220" r="24" fill="url(#leafg)" opacity="0.7"/>
+    <svg class="tree" viewBox="0 0 200 260" id="tree">
+      <!-- ствол -->
+      <path class="trunk" d="M96 250 L96 150 Q96 120 88 100 L112 100 Q104 120 104 150 L104 250 Z"/>
+      <!-- ветви -->
+      <path class="branch" stroke-width="4" d="M100 160 L70 130"/>
+      <path class="branch" stroke-width="4" d="M100 160 L130 130"/>
+      <path class="branch" stroke-width="3" d="M100 135 L78 112"/>
+      <path class="branch" stroke-width="3" d="M100 135 L122 112"/>
+      <!-- крона -->
+      <g class="crown" id="crown">
+        <circle class="dim" cx="100" cy="85" r="42"/>
+        <circle cx="78"  cy="92"  r="30"/>
+        <circle cx="122" cy="92"  r="30"/>
+        <circle cx="100" cy="70"  r="34"/>
+        <circle cx="70"  cy="112" r="22"/>
+        <circle cx="130" cy="112" r="22"/>
+        <circle cx="100" cy="102" r="30"/>
       </g>
-      <!-- Падающие лепестки -->
-      <circle class="leaf" cx="100" cy="260" r="4" fill="#fff" opacity="0.6"/>
-      <circle class="leaf" cx="300" cy="280" r="3" fill="#fff" opacity="0.5"/>
-      <circle class="leaf" cx="180" cy="300" r="3.5" fill="#fff" opacity="0.4"/>
     </svg>
   </div>
 
-  <!-- СЧЁТЧИК -->
-  <div class="counter">
-    <div class="label">Не курю</div>
-    <div class="big" id="days">0</div>
-    <div class="unit" id="unit">дней</div>
-    <div class="substats">
-      <div class="substat">
-        <div class="val" id="cigs">0</div>
-        <div class="lbl">Не выкурено</div>
-      </div>
-      <div class="substat">
-        <div class="val" id="money">0 ₽</div>
-        <div class="lbl">Сэкономлено</div>
-      </div>
-      <div class="substat">
-        <div class="val" id="relapses">0</div>
-        <div class="lbl">Срывов</div>
-      </div>
-    </div>
+  <!-- СЧЁТЧИКИ -->
+  <div class="stats">
+    <div class="stat"><b id="days">0</b><span>дней</span></div>
+    <div class="stat"><b id="slips">0</b><span>тяг</span></div>
   </div>
 
-  <!-- МЕНЮ -->
-  <div class="menu">
-    <button class="menu-btn" onclick="resetStart()">
-      <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"/></svg>
-      <span>Сброс</span>
+  <!-- КНОПКИ + / − -->
+  <div class="actions">
+    <button class="btn-big dark" id="minusBtn">−</button>
+    <button class="btn-big" id="plusBtn">+</button>
+  </div>
+
+  <!-- НИЖНЯЯ ПАНЕЛЬ -->
+  <div class="navbar">
+    <button class="nav-btn" id="navAdvice" aria-label="Совет">
+      <svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-4 12.7V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.3A7 7 0 0 0 12 2z"/><line x1="9" y1="21" x2="15" y2="21"/></svg>
     </button>
-    <button class="menu-btn primary" onclick="relapse()">
-      <svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/></svg>
-      <span>Я покурил</span>
+    <button class="nav-btn" id="navStats" aria-label="Статистика">
+      <svg viewBox="0 0 24 24"><line x1="4" y1="20" x2="4" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="20" y1="20" x2="20" y2="14"/></svg>
     </button>
-    <button class="menu-btn danger" onclick="share()">
-      <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
-      <span>Поделиться</span>
+    <button class="nav-btn" id="navMotivation" aria-label="Мотивация">
+      <svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+    </button>
+    <button class="nav-btn" id="navRelapse" aria-label="Тяга">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16.5" r=".5" fill="#fff"/></svg>
     </button>
   </div>
 </div>
 
+<!-- ТОСТ -->
+<div class="toast" id="toast"></div>
+
+<!-- ===== ЭКРАН: СОВЕТ ===== -->
+<div class="sheet" id="sheetAdvice">
+  <div class="card">
+    <h2>💬 Совет</h2>
+    <p><b>Ты не один.</b> Самый тяжёлый рубеж — первый месяц. Именно за это время организм очищается, тяга слабеет, сон и дыхание возвращаются. Продержись 30 дней — дальше будет легче.</p>
+    <div class="tip">1. Не ставь цель «навсегда» — только: «Сегодня не курю».</div>
+    <div class="tip">2. Отмечай каждый день — календарь, стикеры, скриншоты. Прогресс мотивирует.</div>
+    <div class="tip">3. На тягу: 5–10 глубоких вдохов / глоток воды / прогулка 5 минут. Пик тяги длится 3–5 минут — пережди его.</div>
+    <div class="tip">4. Убери сигареты и зажигалки из поля зрения. Смени привычные ритуалы (кофе + сигарета).</div>
+    <div class="tip">5. Скажи близким — поддержка работает лучше силы воли.</div>
+    <button class="close-btn" data-close>Понял</button>
+  </div>
+</div>
+
+<!-- ===== ЭКРАН: СТАТИСТИКА ===== -->
+<div class="sheet" id="sheetStats">
+  <div class="card">
+    <h2>📊 Твой прогресс</h2>
+    <p id="statsText"></p>
+    <button class="close-btn" data-close>Закрыть</button>
+  </div>
+</div>
+
+<!-- ===== ЭКРАН: МОТИВАЦИЯ ===== -->
+<div class="sheet" id="sheetMotivation">
+  <div class="card">
+    <h2>🔥 Мотивация</h2>
+    <p id="motivText"></p>
+    <button class="close-btn" data-close>Заряжен</button>
+  </div>
+</div>
+
+<!-- ===== ЭКРАН: ТЯГА ===== -->
+<div class="sheet" id="sheetRelapse">
+  <div class="card">
+    <h2>😮‍💨 Была тяга?</h2>
+    <p>Это нормально. Тяга — не провал, а сигнал. Отметь её, чтобы видеть паттерны и держать контроль.</p>
+    <input type="number" class="num-input" id="slipInput" placeholder="Сколько тяг?" min="1" value="1">
+    <button class="close-btn" id="addSlipBtn">Записать тягу</button>
+    <div class="reset-link" id="resetLink">сбросить всё</div>
+  </div>
+</div>
+
 <script>
-  const tg = window.Telegram.WebApp;
-  tg.ready();
-  tg.expand();
-  tg.setHeaderColor('#000000');
-  tg.setBackgroundColor('#000000');
+/* ================= ДАННЫЕ ================= */
+const STORAGE_KEY = 'quit_smoking_v1';
+const defaultState = {
+  days: 0,
+  slips: 0,
+  startDate: null,
+  history: []   // {date: 'YYYY-MM-DD', type: 'day'|'slip'}
+};
 
-  const userId = tg.initDataUnsafe?.user?.id || 0;
-  let state = null;
+let state = load();
 
-  function plural(n, one, few, many) {
-    n = Math.abs(n) % 100;
-    const n1 = n % 10;
-    if (n > 10 && n < 20) return many;
-    if (n1 > 1 && n1 < 5) return few;
-    if (n1 === 1) return one;
-    return many;
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {...defaultState};
+    return {...defaultState, ...JSON.parse(raw)};
+  } catch(e) { return {...defaultState}; }
+}
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+function today() {
+  const d = new Date();
+  return d.toISOString().slice(0,10);
+}
+
+/* ================= РЕНДЕР ================= */
+const $ = (id) => document.getElementById(id);
+
+function render() {
+  $('days').textContent  = state.days;
+  $('slips').textContent = state.slips;
+
+  // рост дерева: крона увеличивается с днями (0..30+)
+  const crown = $('crown');
+  const progress = Math.min(state.days / 30, 1);   // 0..1
+  // от 0.55 до 1.15 — визуальный рост
+  const scale = 0.55 + progress * 0.6;
+  const opacity = 0.5 + progress * 0.5;
+  crown.style.transform = `scale(${scale})`;
+  crown.style.opacity = opacity;
+
+  // если тяга большая — дерево чуть тускнеет (эмоциональный отклик)
+  if (state.slips > 5) {
+    crown.style.filter = `brightness(${Math.max(0.5, 1 - state.slips*0.05)})`;
+  } else {
+    crown.style.filter = 'none';
   }
+}
 
-  function fmtTime(sec) {
-    const d = Math.floor(sec / 86400);
-    const h = Math.floor((sec % 86400) / 3600);
-    const m = Math.floor((sec % 3600) / 60);
-    const s = sec % 60;
-    return { d, h, m, s };
+/* ================= ДЕЙСТВИЯ ================= */
+function addDay() {
+  state.days += 1;
+  if (!state.startDate) state.startDate = today();
+  save(); render();
+  toast(`+1 день. Держишься! 💪`);
+}
+
+function removeDay() {
+  if (state.days <= 0) { toast('Уже 0 дней'); return; }
+  state.days -= 1;
+  save(); render();
+  toast('−1 день');
+}
+
+function addSlip(n) {
+  n = parseInt(n) || 1;
+  state.slips += n;
+  state.history.push({date: today(), type: 'slip', n});
+  save(); render();
+  toast(`Записано тяг: ${n}. Дыши глубже 🌬️`);
+}
+
+/* ================= МОДАЛКИ ================= */
+function openSheet(id) {
+  document.querySelectorAll('.sheet').forEach(s => s.classList.remove('show'));
+  const el = $(id);
+  if (el) el.classList.add('show');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+}
+function closeSheets() {
+  document.querySelectorAll('.sheet').forEach(s => s.classList.remove('show'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+}
+
+/* ================= ТОСТ ================= */
+let toastTimer;
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+/* ================= СТАТИСТИКА / МОТИВАЦИЯ ================= */
+function fillStats() {
+  const perDay = 20; // среднее число сигарет в день
+  const saved = state.days * perDay;
+  const money = state.days * 2; // условно 2$ в день
+  const mins = saved * 11; // 11 минут жизни за сигарету
+  $('statsText').innerHTML = `
+    <b>${state.days}</b> дней без сигарет<br>
+    <b>${state.slips}</b> записанных тяг<br><br>
+    Не выкурено сигарет: <b>${saved}</b><br>
+    Сэкономлено денег: <b>~${money}$</b><br>
+    Вернул себе времени жизни: <b>~${mins} минут</b><br><br>
+    <span style="color:#888;font-size:13px">Дерево растёт 30 дней — это твой первый рубеж.</span>
+  `;
+}
+
+const motivQuotes = [
+  'Ты сильнее привычки. Один день — и ты уже победитель.',
+  'Каждый день без сигарет — инвестиция в твоё будущее.',
+  'Тяга длится 3–5 минут. Ты — дольше.',
+  'Белая листва растёт, пока ты держишься. Не рви корни.',
+  'Сегодня не курю. Этого достаточно.',
+  'Твои лёгкие уже начинают очищаться. Дай им время.',
+  'Свобода от никотина — это не потеря, а возвращение себя.'
+];
+function fillMotivation() {
+  $('motivText').textContent = motivQuotes[Math.floor(Math.random()*motivQuotes.length)];
+}
+
+/* ================= СОБЫТИЯ ================= */
+$('plusBtn').addEventListener('click', addDay);
+$('minusBtn').addEventListener('click', removeDay);
+
+$('navAdvice').addEventListener('click', () => { openSheet('sheetAdvice'); $('navAdvice').classList.add('active'); });
+$('navStats').addEventListener('click', () => { fillStats(); openSheet('sheetStats'); $('navStats').classList.add('active'); });
+$('navMotivation').addEventListener('click', () => { fillMotivation(); openSheet('sheetMotivation'); $('navMotivation').classList.add('active'); });
+$('navRelapse').addEventListener('click', () => { openSheet('sheetRelapse'); $('navRelapse').classList.add('active'); });
+
+document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeSheets));
+document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => {
+  if (e.target === s) closeSheets();
+}));
+
+$('addSlipBtn').addEventListener('click', () => {
+  addSlip($('slipInput').value);
+  $('slipInput').value = 1;
+  closeSheets();
+});
+
+$('resetLink').addEventListener('click', () => {
+  if (confirm('Сбросить весь прогресс?')) {
+    state = {...defaultState};
+    save(); render(); closeSheets();
+    toast('Сброшено. Начнём заново 🌱');
   }
+});
 
-  function render() {
-    if (!state) return;
-    const { d, h, m, s } = fmtTime(state.seconds);
-    const big = document.getElementById('days');
-    const unit = document.getElementById('unit');
-    if (d > 0) {
-      big.textContent = d;
-      unit.textContent = plural(d, 'день', 'дня', 'дней');
-      big.style.fontSize = '64px';
-    } else {
-      big.textContent = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-      unit.textContent = 'часов : минут';
-      big.style.fontSize = '52px';
-    }
-    document.getElementById('cigs').textContent = state.cigs_saved;
-    document.getElementById('money').textContent = Math.round(state.money_saved) + ' ₽';
-    document.getElementById('relapses').textContent = state.relapses;
-  }
+/* ================= INIT ================= */
+render();
 
-  async function load() {
-    try {
-      const r = await fetch('/api/state?user_id=' + userId);
-      state = await r.json();
-      render();
-    } catch (e) { console.error(e); }
-  }
-
-  async function relapse() {
-    tg.HapticFeedback?.impactOccurred('medium');
-    await fetch('/api/relapse', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId })
-    });
-    load();
-  }
-
-  async function resetStart() {
-    tg.HapticFeedback?.impactOccurred('light');
-    await fetch('/api/reset', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId })
-    });
-    load();
-  }
-
-  function share() {
-    const d = state?.days || 0;
-    tg.showAlert(`Я не курю уже ${d} ${plural(d, 'день', 'дня', 'дней')}! 🚭`);
-  }
-
-  // Тик каждую секунду
-  setInterval(() => {
-    if (state) { state.seconds += 1; render(); }
-  }, 1000);
-
-  load();
+// Автосохранение даты начала
+if (!state.startDate && state.days > 0) {
+  state.startDate = today(); save();
+}
 </script>
 </body>
 </html>
