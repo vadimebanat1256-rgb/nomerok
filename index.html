@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Не курю</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%;
+    background: #000;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    overflow: hidden;
+    user-select: none;
+  }
+  #app {
+    position: relative;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: radial-gradient(ellipse at 50% 30%, #0a0a14 0%, #000 70%);
+  }
+
+  /* --- ДЕРЕВО --- */
+  .tree-wrap {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 62vh;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .tree-wrap svg {
+    width: 100%;
+    max-width: 500px;
+    height: auto;
+  }
+  .leaf {
+    animation: sway 4s ease-in-out infinite;
+    transform-origin: center;
+  }
+  .leaf:nth-child(odd) { animation-delay: -1s; }
+  .leaf:nth-child(3n) { animation-delay: -2s; }
+  @keyframes sway {
+    0%, 100% { transform: rotate(-2deg); }
+    50% { transform: rotate(2deg); }
+  }
+  .glow {
+    filter: drop-shadow(0 0 8px rgba(255,255,255,0.35));
+  }
+
+  /* --- ЦЕНТРАЛЬНЫЙ СЧЁТЧИК --- */
+  .counter {
+    position: relative;
+    z-index: 2;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-top: 8vh;
+    text-align: center;
+  }
+  .counter .label {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 12px;
+    font-weight: 500;
+  }
+  .counter .big {
+    font-size: 64px;
+    font-weight: 800;
+    line-height: 1;
+    background: linear-gradient(180deg, #fff 0%, rgba(255,255,255,0.5) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -2px;
+  }
+  .counter .unit {
+    font-size: 18px;
+    color: rgba(255,255,255,0.5);
+    margin-top: 6px;
+    font-weight: 500;
+  }
+  .substats {
+    display: flex;
+    gap: 24px;
+    margin-top: 28px;
+  }
+  .substat {
+    text-align: center;
+  }
+  .substat .val {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .substat .lbl {
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 2px;
+  }
+
+  /* --- НИЖНЕЕ МЕНЮ --- */
+  .menu {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 14px 12px calc(14px + env(safe-area-inset-bottom));
+    margin: 0 12px 12px;
+    background: rgba(20, 20, 28, 0.65);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 24px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+  }
+  .menu-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 4px;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.45);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 16px;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .menu-btn:active { transform: scale(0.92); background: rgba(255,255,255,0.05); }
+  .menu-btn svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+  .menu-btn.primary {
+    color: #fff;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05));
+  }
+  .menu-btn.danger { color: #ff5c5c; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ДЕРЕВО -->
+  <div class="tree-wrap">
+    <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="trunk" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#2a2a35"/>
+          <stop offset="100%" stop-color="#15151c"/>
+        </linearGradient>
+        <radialGradient id="leafg" cx="50%" cy="40%" r="60%">
+          <stop offset="0%" stop-color="#ffffff"/>
+          <stop offset="100%" stop-color="#c8c8d4"/>
+        </radialGradient>
+      </defs>
+      <!-- Ствол -->
+      <path d="M200 400 Q196 320 190 260 Q185 210 170 160 Q160 130 140 100 Q130 85 120 75 Q135 90 155 115 Q170 140 178 170 Q185 200 192 250 Q196 300 200 400 Z" fill="url(#trunk)"/>
+      <path d="M200 400 Q204 320 210 260 Q215 210 230 160 Q240 130 260 100 Q270 85 280 75 Q265 90 245 115 Q230 140 222 170 Q215 200 208 250 Q204 300 200 400 Z" fill="url(#trunk)"/>
+      <path d="M200 400 Q199 340 200 260 Q201 200 200 150" stroke="#1e1e28" stroke-width="4" fill="none"/>
+      <!-- Ветви -->
+      <path d="M190 200 Q150 170 110 150" stroke="#22222d" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <path d="M210 200 Q250 170 290 150" stroke="#22222d" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <path d="M195 260 Q160 240 130 230" stroke="#22222d" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <path d="M205 260 Q240 240 270 230" stroke="#22222d" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+
+      <!-- Листва (белая) -->
+      <g class="glow">
+        <circle class="leaf" cx="120" cy="140" r="38" fill="url(#leafg)" opacity="0.95"/>
+        <circle class="leaf" cx="280" cy="140" r="38" fill="url(#leafg)" opacity="0.95"/>
+        <circle class="leaf" cx="200" cy="100" r="46" fill="url(#leafg)" opacity="0.95"/>
+        <circle class="leaf" cx="90" cy="200" r="28" fill="url(#leafg)" opacity="0.85"/>
+        <circle class="leaf" cx="310" cy="200" r="28" fill="url(#leafg)" opacity="0.85"/>
+        <circle class="leaf" cx="150" cy="180" r="30" fill="url(#leafg)" opacity="0.9"/>
+        <circle class="leaf" cx="250" cy="180" r="30" fill="url(#leafg)" opacity="0.9"/>
+        <circle class="leaf" cx="200" cy="160" r="34" fill="url(#leafg)" opacity="0.9"/>
+        <circle class="leaf" cx="200" cy="220" r="24" fill="url(#leafg)" opacity="0.7"/>
+      </g>
+      <!-- Падающие лепестки -->
+      <circle class="leaf" cx="100" cy="260" r="4" fill="#fff" opacity="0.6"/>
+      <circle class="leaf" cx="300" cy="280" r="3" fill="#fff" opacity="0.5"/>
+      <circle class="leaf" cx="180" cy="300" r="3.5" fill="#fff" opacity="0.4"/>
+    </svg>
+  </div>
+
+  <!-- СЧЁТЧИК -->
+  <div class="counter">
+    <div class="label">Не курю</div>
+    <div class="big" id="days">0</div>
+    <div class="unit" id="unit">дней</div>
+    <div class="substats">
+      <div class="substat">
+        <div class="val" id="cigs">0</div>
+        <div class="lbl">Не выкурено</div>
+      </div>
+      <div class="substat">
+        <div class="val" id="money">0 ₽</div>
+        <div class="lbl">Сэкономлено</div>
+      </div>
+      <div class="substat">
+        <div class="val" id="relapses">0</div>
+        <div class="lbl">Срывов</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- МЕНЮ -->
+  <div class="menu">
+    <button class="menu-btn" onclick="resetStart()">
+      <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"/></svg>
+      <span>Сброс</span>
+    </button>
+    <button class="menu-btn primary" onclick="relapse()">
+      <svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/></svg>
+      <span>Я покурил</span>
+    </button>
+    <button class="menu-btn danger" onclick="share()">
+      <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+      <span>Поделиться</span>
+    </button>
+  </div>
+</div>
+
+<script>
+  const tg = window.Telegram.WebApp;
+  tg.ready();
+  tg.expand();
+  tg.setHeaderColor('#000000');
+  tg.setBackgroundColor('#000000');
+
+  const userId = tg.initDataUnsafe?.user?.id || 0;
+  let state = null;
+
+  function plural(n, one, few, many) {
+    n = Math.abs(n) % 100;
+    const n1 = n % 10;
+    if (n > 10 && n < 20) return many;
+    if (n1 > 1 && n1 < 5) return few;
+    if (n1 === 1) return one;
+    return many;
+  }
+
+  function fmtTime(sec) {
+    const d = Math.floor(sec / 86400);
+    const h = Math.floor((sec % 86400) / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    return { d, h, m, s };
+  }
+
+  function render() {
+    if (!state) return;
+    const { d, h, m, s } = fmtTime(state.seconds);
+    const big = document.getElementById('days');
+    const unit = document.getElementById('unit');
+    if (d > 0) {
+      big.textContent = d;
+      unit.textContent = plural(d, 'день', 'дня', 'дней');
+      big.style.fontSize = '64px';
+    } else {
+      big.textContent = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+      unit.textContent = 'часов : минут';
+      big.style.fontSize = '52px';
+    }
+    document.getElementById('cigs').textContent = state.cigs_saved;
+    document.getElementById('money').textContent = Math.round(state.money_saved) + ' ₽';
+    document.getElementById('relapses').textContent = state.relapses;
+  }
+
+  async function load() {
+    try {
+      const r = await fetch('/api/state?user_id=' + userId);
+      state = await r.json();
+      render();
+    } catch (e) { console.error(e); }
+  }
+
+  async function relapse() {
+    tg.HapticFeedback?.impactOccurred('medium');
+    await fetch('/api/relapse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId })
+    });
+    load();
+  }
+
+  async function resetStart() {
+    tg.HapticFeedback?.impactOccurred('light');
+    await fetch('/api/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId })
+    });
+    load();
+  }
+
+  function share() {
+    const d = state?.days || 0;
+    tg.showAlert(`Я не курю уже ${d} ${plural(d, 'день', 'дня', 'дней')}! 🚭`);
+  }
+
+  // Тик каждую секунду
+  setInterval(() => {
+    if (state) { state.seconds += 1; render(); }
+  }, 1000);
+
+  load();
+</script>
+</body>
+</html>
